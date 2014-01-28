@@ -16,6 +16,8 @@ module Locksmith
         begin Timeout::timeout(opts[:ttl]) {return(yield)}
         ensure delete(name, opts)
         end
+      else
+        raise Locksmith::UnableToLock
       end
     end
 
