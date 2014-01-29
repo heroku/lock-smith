@@ -41,6 +41,7 @@ end
 
 * ttl - Sets TTL on the DynamoDB item & Wraps your block in a timeout. Be sure to handle `Timeout::Error`.
 * attempts - Number of attempts to create DynamoDB item. Your code will only run once.
+* attempt_interval - Number of seconds to wait between failed attempts (default: 0.1).
 
 ### PostgreSQL
 
@@ -61,6 +62,7 @@ end
 * lspace - This defines which lock space lock-smith will use. This is handy if you have multiple applications using advisory locks.
 * ttl - Wraps your block in a timeout. Be sure to handle `Timeout::Error`.
 * attempts - Number of attempts to try advisory lock. Your code will only run once.
+* attempt_interval - Number of seconds to wait between failed attempts (default: 0.1).
 
 ## Hacking on Locksmith
 
