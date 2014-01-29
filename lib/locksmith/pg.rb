@@ -10,6 +10,7 @@ module Locksmith
     def lock(name, opts={})
       opts[:ttl] ||= 60
       opts[:attempts] ||= 3
+      opts[:attempt_interval] ||= 0.1
       opts[:lspace] ||= (Config.pg_lock_space || -2147483648)
 
       if create(name, opts)
@@ -39,6 +40,7 @@ module Locksmith
           return(true)
         else
           return(false) if i == (opts[:attempts] - 1)
+          sleep opts[:attempt_interval]
         end
       end
     end

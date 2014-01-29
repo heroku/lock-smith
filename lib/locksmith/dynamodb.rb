@@ -12,6 +12,7 @@ module Locksmith
     def lock(name, opts={})
       opts[:ttl] ||= 60
       opts[:attempts] ||= 3
+      opts[:attempt_interval] ||= 0.1
       # Clean up expired locks. Does not grantee that we will
       # be able to acquire the lock, just a nice thing to do for
       # the other processes attempting to lock.
@@ -33,6 +34,7 @@ module Locksmith
           return(true)
         rescue AWS::DynamoDB::Errors::ConditionalCheckFailedException
           return(false) if i == (attempts - 1)
+          sleep opts[:attempt_interval]
         end
       end
     end
