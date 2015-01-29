@@ -14,8 +14,12 @@ module Locksmith
       opts[:lspace] ||= (Config.pg_lock_space || -2147483648)
 
       if create(name, opts)
-        begin Timeout::timeout(opts[:ttl]) {return(yield)}
-        ensure delete(name, opts)
+        begin 
+          Timeout::timeout(opts[:ttl]) {
+            return(yield)
+          }
+        ensure 
+          delete(name, opts)
         end
       else
         raise Locksmith::UnableToLock
