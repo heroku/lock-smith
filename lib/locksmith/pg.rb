@@ -33,10 +33,18 @@ module Locksmith
     end
 
     class ActiveRecordConnectionAdapter
+      attr_writer :error_handler
+
       def with_connection
         ::ActiveRecord::Base.connection_pool.with_connection do |connection|
           yield(connection.raw_connection)
         end
+      rescue PG::Error => e
+        error_handler.call(e)
+      end
+
+      def error_handler
+        @error_handler || lambda {}
       end
     end
 
