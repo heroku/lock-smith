@@ -5,7 +5,50 @@ require 'locksmith/config'
 
 module Locksmith
   module Pg
+    class DbUrlConnectionAdapter
+      def with_connection
+        connection = connect
+        yield(connection)
+      end
+
+      private
+      def connect
+        @conn ||= PG::Connection.open(
+                                      dburl.host,
+                                      dburl.port || 5432,
+                                      nil, '', #opts, tty
+                                      dburl.path.gsub("/",""), # database name
+                                      dburl.user,
+                                      dburl.password
+                                     )
+      end
+
+      def dburl
+        URI.parse(ENV["DATABASE_URL"])
+      end
+
+      def conn=(conn)
+        @conn = conn
+      end
+    end
+
+    class ActiveRecordConnectionAdapter
+      def with_connection
+        ::ActiveRecord::Base.connection_pool.with_connection do |connection|
+          yield(connection.raw_connection)
+        end
+      end
+    end
+
     extend self
+
+    def connection_adapter
+      @connection_adapter || DbUrlConnectionAdapter.new
+    end
+
+    def connection_adapter=(adapter)
+      @connection_adapter=adapter
+    end
 
     def lock(name, opts={})
       opts[:ttl] ||= 60
@@ -14,11 +57,11 @@ module Locksmith
       opts[:lspace] ||= (Config.pg_lock_space || -2147483648)
 
       if create(name, opts)
-        begin 
+        begin
           Timeout::timeout(opts[:ttl]) {
             return(yield)
           }
-        ensure 
+        ensure
           delete(name, opts)
         end
       else
@@ -39,7 +82,9 @@ module Locksmith
     def create(name, opts)
       lock_args = [opts[:lspace], key(name)]
       opts[:attempts].times.each do |i|
-        res = conn.exec("select pg_try_advisory_lock($1,$2)", lock_args)
+        res = connection_adapter.with_connection do |conn|
+          conn.exec("select pg_try_advisory_lock($1,$2)", lock_args)
+        end
         if res[0]["pg_try_advisory_lock"] == "t"
           return(true)
         else
@@ -51,26 +96,9 @@ module Locksmith
 
     def delete(name, opts)
       lock_args = [opts[:lspace], key(name)]
-      conn.exec("select pg_advisory_unlock($1,$2)", lock_args)
-    end
-
-    def conn=(conn)
-      @conn = conn
-    end
-
-    def conn
-      @conn ||= PG::Connection.open(
-        dburl.host,
-        dburl.port || 5432,
-        nil, '', #opts, tty
-        dburl.path.gsub("/",""), # database name
-        dburl.user,
-        dburl.password
-      )
-    end
-
-    def dburl
-      URI.parse(ENV["DATABASE_URL"])
+      connection_adapter.with_connection do |conn|
+        conn.exec("select pg_advisory_unlock($1,$2)", lock_args)
+      end
     end
 
     def log(data, &blk)
