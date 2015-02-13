@@ -33,19 +33,23 @@ module Locksmith
     end
 
     class ActiveRecordConnectionAdapter
-      attr_writer :error_handler
+      attr_reader :logger
+
+      def initialize(logger=nil)
+        @logger = Logger.new(STDOUT) || logger
+      end
 
       def with_connection
         ::ActiveRecord::Base.connection_pool.with_connection do |connection|
+          connection.verify!
           yield(connection.raw_connection)
         end
       rescue PG::Error => e
-        error_handler.call(e)
+        logger.error(e)
+        sleep 1
+        retry
       end
 
-      def error_handler
-        @error_handler || lambda {}
-      end
     end
 
     extend self
